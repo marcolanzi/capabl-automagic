@@ -3,11 +3,19 @@
   "version": "1.0.0",
   "description": "Capabl Automagic Framework - Shared AI agents, scripts, and design system",
   "type": "module",
+  "main": "./shared/lib/index.ts",
+  "exports": {
+    ".": "./shared/lib/index.ts",
+    "./coreMapClient": "./shared/lib/coreMapClient.ts",
+    "./types": "./shared/types/index.ts",
+    "./types/shipyard": "./shared/types/shipyard.ts"
+  },
   "scripts": {
     "humanize": "tsx scripts/humanize.ts",
     "humanize:test": "tsx scripts/notion-bridge.ts --test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.0"
   },
   "devDependencies": {

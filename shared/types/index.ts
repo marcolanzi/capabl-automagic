@@ -1,7 +1,22 @@
 /**
- * Automagic Shared Types
+ * Capabl Automagic - Shared Types
  *
- * Re-export all shared type definitions.
+ * Type definitions shared across Capabl applications.
  */
 
-export * from './shipyard.js';
+// Shipyard types (Notion ticket management)
+export * from "./shipyard";
+
+// Re-export core entity types from the client library
+export type {
+  CoreUser,
+  CoreVendor,
+  CoreBrand,
+  CoreEntity,
+  EntityType,
+  LookupBy,
+  EntityMapping,
+  ResolveResult,
+  CreateResult,
+  SyncResult,
+} from "../lib/coreMapClient";
