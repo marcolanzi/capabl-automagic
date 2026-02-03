@@ -1,0 +1,24 @@
+{
+  "name": "@capabl/automagic",
+  "version": "1.0.0",
+  "description": "Capabl Automagic Framework - Shared AI agents, scripts, and design system",
+  "type": "module",
+  "scripts": {
+    "humanize": "tsx scripts/humanize.ts",
+    "humanize:test": "tsx scripts/notion-bridge.ts --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcolanzi/capabl-automagic.git"
+  },
+  "author": "Capabl",
+  "license": "MIT"
+}
