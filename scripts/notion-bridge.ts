@@ -6,10 +6,6 @@
  *
  * Uses the data_source_id API (v2025-09-03) for multi-source databases.
  * The Shipyard DB contains multiple data sources; we target "Capabl OS • Tickets".
- *
- * CONFIGURATION:
- * - Set TARGET_APP in .env to filter tickets for your application
- * - Set TEAM_USERS as JSON in .env to map team member names to Notion user IDs
  */
 
 import * as dotenv from "dotenv";
@@ -34,27 +30,15 @@ const STATE_FILE = path.resolve(process.cwd(), "humanize_state.json");
 const API_KEY = process.env.NOTION_SHIPYARD_API_KEY ?? "";
 const DB_ID = process.env.NOTION_SHIPYARD_DB_ID ?? "";
 
-// Application filter — configurable via environment variable
-// Each consumer app sets this to their application name in Shipyard
-const TARGET_APP = process.env.TARGET_APP ?? "";
-
-if (!TARGET_APP) {
-  console.warn(
-    "! TARGET_APP is not set in .env. Tickets will not be filtered by application."
-  );
-}
+// Application filter — only tickets tagged for this project
+const TARGET_APP = "Retail Intelligence Insights";
 
 // Notion workspace user IDs (for Assignee field)
-// Can be configured via TEAM_USERS env var as JSON, or defaults to empty
-let TEAM_USERS: Record<string, string> = {};
-try {
-  const teamUsersEnv = process.env.TEAM_USERS;
-  if (teamUsersEnv) {
-    TEAM_USERS = JSON.parse(teamUsersEnv);
-  }
-} catch {
-  console.warn("! TEAM_USERS env var is not valid JSON. Using empty map.");
-}
+const TEAM_USERS: Record<string, string> = {
+  "Marco Lanzi": "72881aba-e6de-4b18-8673-4f51f5de1eec",
+  "Davide Bolognini": "2bed872b-594c-8136-8470-0002b1b2076b",
+  "Mara Pescione": "2c6d872b-594c-811d-b980-0002f2ae5bf1",
+};
 
 // AI Squad user — a human account used to assign tickets to the AI
 // Set NOTION_AI_SQUAD_USER_ID in .env once the user is created
@@ -237,7 +221,7 @@ async function fetchAllShipyardPages(): Promise<any[]> {
 
 /**
  * Fetch tickets assigned to the AI bot with Status="Open" AND Application = TARGET_APP.
- * Only returns tickets that the AI should work on (assigned to AI Squad).
+ * Only returns tickets that the AI should work on (assigned to Capabl Automagic).
  */
 export async function fetchReadyTickets(): Promise<ShipyardTicket[]> {
   const pages = await fetchAllShipyardPages();
@@ -245,10 +229,9 @@ export async function fetchReadyTickets(): Promise<ShipyardTicket[]> {
 
   for (const page of pages) {
     const ticket = extractTicket(page);
-    const matchesApp = !TARGET_APP || ticket.application === TARGET_APP;
     if (
       ticket.status === "Open" &&
-      matchesApp &&
+      ticket.application === TARGET_APP &&
       ticket.assigned_to_ai_squad
     ) {
       tickets.push(ticket);
@@ -272,20 +255,17 @@ export async function fetchReadyTickets(): Promise<ShipyardTicket[]> {
  * Create a new ticket in the Tickets data source.
  * Uses data_source_id parent (required for multi-source databases).
  */
+export type ShipyardType = "Bug" | "Task" | "Story" | "Epic";
+
 export async function createTicket(
   title: string,
   area: ShipyardArea,
   body?: string,
   priority: ShipyardPriority = "P0",
   assignee?: string,
-  application?: string
+  type: ShipyardType = "Task"
 ): Promise<ShipyardTicket> {
   const dsId = await resolveDataSourceId();
-  const appName = application ?? TARGET_APP;
-
-  if (!appName) {
-    throw new Error("TARGET_APP is not set and no application was provided");
-  }
 
   const properties: any = {
     Ticket: {
@@ -295,13 +275,13 @@ export async function createTicket(
       status: { name: "Open" },
     },
     Application: {
-      multi_select: [{ name: appName }],
+      multi_select: [{ name: TARGET_APP }],
     },
     Area: {
       multi_select: [{ name: area }],
     },
     Type: {
-      select: { name: "Task" },
+      select: { name: type },
     },
     Priority: {
       select: { name: priority },
@@ -453,9 +433,8 @@ export async function updateTicketAssignee(
 ): Promise<void> {
   const userId = TEAM_USERS[assigneeName];
   if (!userId) {
-    const known = Object.keys(TEAM_USERS).join(", ") || "(none configured)";
     throw new Error(
-      `Unknown team member "${assigneeName}". Known: ${known}`
+      `Unknown team member "${assigneeName}". Known: ${Object.keys(TEAM_USERS).join(", ")}`
     );
   }
 
@@ -476,8 +455,74 @@ export async function updateTicketAssignee(
 }
 
 /**
+ * Fetch full details of a single ticket, including page content (description).
+ * Returns both properties and page blocks.
+ */
+export async function fetchTicketDetails(pageId: string): Promise<{
+  ticket: ShipyardTicket;
+  description: string;
+}> {
+  // Fetch page properties
+  const pageData = await notionFetch(`/pages/${pageId}`);
+  if (pageData.object === "error") {
+    throw new Error(`Failed to fetch ticket: ${pageData.message}`);
+  }
+
+  const ticket = extractTicket(pageData);
+  await sleep(RATE_LIMIT_DELAY);
+
+  // Fetch page blocks (content)
+  const blocksData = await notionFetch(`/blocks/${pageId}/children`);
+  if (blocksData.object === "error") {
+    throw new Error(`Failed to fetch ticket content: ${blocksData.message}`);
+  }
+
+  // Extract text from blocks
+  const blocks = blocksData.results ?? [];
+  const textParts: string[] = [];
+
+  for (const block of blocks) {
+    if (block.type === "paragraph" && block.paragraph?.rich_text) {
+      const text = block.paragraph.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(text);
+    } else if (block.type === "bulleted_list_item" && block.bulleted_list_item?.rich_text) {
+      const text = block.bulleted_list_item.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(`• ${text}`);
+    } else if (block.type === "numbered_list_item" && block.numbered_list_item?.rich_text) {
+      const text = block.numbered_list_item.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(`${textParts.length + 1}. ${text}`);
+    } else if (block.type === "heading_1" && block.heading_1?.rich_text) {
+      const text = block.heading_1.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(`\n# ${text}\n`);
+    } else if (block.type === "heading_2" && block.heading_2?.rich_text) {
+      const text = block.heading_2.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(`\n## ${text}\n`);
+    } else if (block.type === "heading_3" && block.heading_3?.rich_text) {
+      const text = block.heading_3.rich_text
+        .map((t: any) => t.plain_text)
+        .join("");
+      if (text.trim()) textParts.push(`\n### ${text}\n`);
+    }
+  }
+
+  const description = textParts.join("\n").trim();
+
+  return { ticket, description };
+}
+
+/**
  * Sync all active AI-assigned tickets to local humanize_state.json.
- * Only includes tickets assigned to AI Squad for this application.
+ * Only includes tickets assigned to Capabl Automagic for this application.
  */
 export async function syncState(): Promise<HumanizeState> {
   const pages = await fetchAllShipyardPages();
@@ -487,9 +532,8 @@ export async function syncState(): Promise<HumanizeState> {
     const ticket = extractTicket(page);
     // Only include AI-assigned tickets for our app that are actionable
     const excluded: string[] = ["Done", "Blocked by human", "On hold"];
-    const matchesApp = !TARGET_APP || ticket.application === TARGET_APP;
     if (
-      matchesApp &&
+      ticket.application === TARGET_APP &&
       ticket.assigned_to_ai_squad &&
       !excluded.includes(ticket.status)
     ) {
@@ -556,12 +600,6 @@ async function selfTest() {
   }
   console.log(`+ Database ID: ${DB_ID}`);
 
-  if (!TARGET_APP) {
-    console.warn("! TARGET_APP is not set — tickets will not be filtered by application");
-  } else {
-    console.log(`+ Target application: ${TARGET_APP}`);
-  }
-
   if (!AI_SQUAD_ID) {
     console.warn("! NOTION_AI_SQUAD_USER_ID is not set");
     console.warn("  Create an 'AI Squad' user in Notion and add their ID to .env");
@@ -569,9 +607,6 @@ async function selfTest() {
   } else {
     console.log(`+ AI Squad user: ${AI_SQUAD_ID}`);
   }
-
-  const teamCount = Object.keys(TEAM_USERS).length;
-  console.log(`+ Team users configured: ${teamCount}`);
 
   // Resolve data source
   console.log("\n> Resolving data sources...");
@@ -602,8 +637,7 @@ async function selfTest() {
   }
   console.log("\n  Tickets by application:");
   for (const [app, count] of appCounts) {
-    const marker = app === TARGET_APP ? " <-- TARGET" : "";
-    console.log(`    ${app}: ${count}${marker}`);
+    console.log(`    ${app}: ${count}`);
   }
 
   // Test write capability

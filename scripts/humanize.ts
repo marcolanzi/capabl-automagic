@@ -6,9 +6,12 @@
  * Usage:
  *   npm run humanize                                    — Sync and display queue
  *   npm run humanize -- --poll                          — Poll for Open tickets
- *   npm run humanize -- --create "Title" --area Frontend --body "Details..."  — Create ticket
+ *   npm run humanize -- --create "Title" --area Frontend --type Story --body "Details..."  — Create ticket
  *   npm run humanize -- --start <ticket-id>             — Mark In Progress + create branch
  *   npm run humanize -- --done <ticket-id>              — Mark Done + sync state
+ *   npm run humanize -- --get <ticket-id>               — Fetch full ticket details
+ *
+ * Type options: Bug, Task, Story, Epic (default: Story for new features, Bug for fixes)
  */
 
 import * as dotenv from "dotenv";
@@ -20,6 +23,8 @@ import {
   updateTicketBranch,
   updateTicketAssignee,
   syncState,
+  fetchTicketDetails,
+  type ShipyardType,
 } from "./notion-bridge.js";
 import type {
   ShipyardArea,
@@ -43,6 +48,8 @@ const VALID_AREAS: ShipyardArea[] = [
 ];
 
 const VALID_PRIORITIES: ShipyardPriority[] = ["P0", "P1", "P2", "P3", "P4"];
+
+const VALID_TYPES: ShipyardType[] = ["Bug", "Task", "Story", "Epic"];
 
 // ── Argument parsing ──
 
@@ -154,6 +161,7 @@ async function cmdCreate() {
   const body = getArg("--body");
   const priorityArg = getArg("--priority");
   const assignee = getArg("--assignee");
+  const typeArg = getArg("--type");
 
   if (!title) {
     console.error('x --create requires a title: --create "My ticket title"');
@@ -174,16 +182,26 @@ async function cmdCreate() {
     process.exit(1);
   }
 
+  if (typeArg && !VALID_TYPES.includes(typeArg as ShipyardType)) {
+    console.error(
+      `x Invalid type. Valid: ${VALID_TYPES.join(", ")}`
+    );
+    process.exit(1);
+  }
+
   const priority = (priorityArg as ShipyardPriority) ?? "P0";
+  // Default to Story for new features, can be overridden with --type
+  const ticketType = (typeArg as ShipyardType) ?? "Story";
   const assigneeLabel = assignee ? ` -> ${assignee}` : "";
 
-  console.log(`> Creating ticket: "${title}" [${areaName}] ${priority}${assigneeLabel}`);
+  console.log(`> Creating ticket: "${title}" [${areaName}] ${priority} ${ticketType}${assigneeLabel}`);
   const ticket = await createTicket(
     title,
     areaName as ShipyardArea,
     body,
     priority,
-    assignee
+    assignee,
+    ticketType
   );
 
   appendHistory({
@@ -266,6 +284,37 @@ async function cmdDone() {
   console.log(`\n+ Ticket done. ${state.queue.length} ticket(s) remaining.`);
 }
 
+async function cmdGet() {
+  const ticketId = getArg("--get");
+  if (!ticketId) {
+    console.error("x --get requires a ticket ID");
+    process.exit(1);
+  }
+
+  console.log(`> Fetching ticket ${shortId(ticketId)}...\n`);
+
+  const { ticket, description } = await fetchTicketDetails(ticketId);
+
+  console.log(`Title: ${ticket.title}`);
+  console.log(`Status: ${ticket.status}`);
+  if (ticket.area) console.log(`Area: ${ticket.area}`);
+  if (ticket.type) console.log(`Type: ${ticket.type}`);
+  if (ticket.priority) console.log(`Priority: ${ticket.priority}`);
+  if (ticket.spec_url) console.log(`Spec URL: ${ticket.spec_url}`);
+  if (ticket.due) console.log(`Due: ${ticket.due}`);
+  if (ticket.branch) console.log(`Branch: ${ticket.branch}`);
+  if (ticket.blocked_by.length > 0) {
+    console.log(`Blocked by: ${ticket.blocked_by.map(shortId).join(", ")}`);
+  }
+  if (ticket.blocks.length > 0) {
+    console.log(`Blocks: ${ticket.blocks.map(shortId).join(", ")}`);
+  }
+
+  console.log(`\nDescription:\n${description || "(no description)"}`);
+  console.log(`\nCreated: ${ticket.created_at}`);
+  console.log(`Updated: ${ticket.updated_at}`);
+}
+
 // ── Main ──
 
 async function main() {
@@ -277,6 +326,8 @@ async function main() {
     await cmdStart();
   } else if (hasFlag("--done")) {
     await cmdDone();
+  } else if (hasFlag("--get")) {
+    await cmdGet();
   } else {
     await cmdSync();
   }
