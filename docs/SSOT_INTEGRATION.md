@@ -179,6 +179,86 @@ Or create a new user via Core's signup.
 
 ---
 
+## 1b. LinkedIn OAuth (Social Login)
+
+Capabl Core supports LinkedIn OAuth for social login across all satellite apps.
+
+### Add LinkedIn Login Button
+
+```typescript
+import { coreAuth } from '@/integrations/supabase/coreAuth';
+
+async function signInWithLinkedIn() {
+  const { error } = await coreAuth.auth.signInWithOAuth({
+    provider: 'linkedin_oidc',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) {
+    console.error('LinkedIn OAuth error:', error);
+  }
+}
+
+// In your login component:
+<button onClick={signInWithLinkedIn}>
+  Sign in with LinkedIn
+</button>
+```
+
+### Handle OAuth Callback
+
+Create a callback route (e.g., `src/pages/auth/callback.tsx`):
+
+```typescript
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { coreAuth } from '@/integrations/supabase/coreAuth';
+
+export default function AuthCallback() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Supabase handles the OAuth callback automatically
+    // The session is stored in localStorage
+    coreAuth.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/dashboard');
+      } else {
+        navigate('/login?error=oauth_failed');
+      }
+    });
+  }, [navigate]);
+
+  return <div>Completing sign in...</div>;
+}
+```
+
+### Requirements for New Apps
+
+To enable LinkedIn OAuth for your satellite app:
+
+1. **Contact Capabl Core admin** to add your app's domain to the LinkedIn OAuth redirect URLs
+2. Required redirect URL format: `https://your-app-domain.com/auth/callback`
+3. The LinkedIn provider is already configured in Capabl Core's Supabase project
+
+### User Data from LinkedIn
+
+After LinkedIn OAuth, user data is available in the session:
+
+```typescript
+const { data: { session } } = await coreAuth.auth.getSession();
+
+// LinkedIn profile data
+const user = session?.user;
+console.log(user?.email);                    // Email from LinkedIn
+console.log(user?.user_metadata?.full_name); // Display name
+console.log(user?.user_metadata?.avatar_url); // Profile picture
+console.log(user?.app_metadata?.provider);   // 'linkedin_oidc'
+```
+
+---
+
 ## 2. Entity Management (Vendors, Brands, Users)
 
 ### Core Tables
