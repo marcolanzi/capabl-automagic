@@ -1,6 +1,6 @@
 ---
 name: automagic-consistent
-description: "Use this agent when changes are made to Automagic core files (.claude/agents/, scripts/humanize.ts, scripts/notion-bridge.ts, shared/types/shipyard). This agent evaluates whether changes are generic and should be promoted to the central capabl-automagic repository, or if they are app-specific and should remain local.\n\nInvoke this agent proactively when:\n- An agent definition file is modified\n- The humanize scripts are updated\n- Shared types are changed\n- The user asks to sync or promote changes to Automagic"
+description: "Use this agent when changes are made to Automagic core files (.claude/agents/, scripts/humanize.ts, scripts/notion-bridge.ts, shared/lib/, shared/types/, docs/SSOT_INTEGRATION.md). This agent evaluates whether changes are generic and should be promoted to the central capabl-automagic repository, or if they are app-specific and should remain local.\n\nInvoke this agent proactively when:\n- An agent definition file is modified\n- The humanize scripts are updated\n- Shared types or libraries are changed\n- SSOT integration docs are updated\n- The user asks to sync or promote changes to Automagic"
 model: sonnet
 color: cyan
 ---
@@ -18,6 +18,7 @@ You are the gatekeeper between app-specific customizations and ecosystem-wide im
 ```
 .claude/
 ├── agents/
+│   ├── automagic-consistent.md   # This agent (self-healing)
 │   ├── data-collector.md         # Generic data fetching
 │   ├── e2e-watcher.md            # Generic E2E testing
 │   ├── frontend-ux-visualizer.md # Capabl Design System (SHARED)
@@ -26,12 +27,20 @@ You are the gatekeeper between app-specific customizations and ecosystem-wide im
 │   ├── supabase-architect.md     # DB schema/migrations
 │   └── unit-tester.md            # Unit test generation
 │
+docs/
+└── SSOT_INTEGRATION.md           # SSOT guide for satellite apps
+
 scripts/
 ├── humanize.ts                   # Humanize CLI
 └── notion-bridge.ts              # Notion API operations
 
-shared/types/
-└── shipyard.ts                   # Shipyard ticket types
+shared/
+├── lib/
+│   ├── coreMapClient.ts          # SSOT entity resolution client
+│   └── index.ts                  # Library exports
+└── types/
+    ├── index.ts                  # Type exports
+    └── shipyard.ts               # Shipyard ticket types
 ```
 
 ## Central Repository
@@ -124,7 +133,10 @@ cd /tmp && git clone git@github.com:marcolanzi/capabl-automagic.git
 cp -r /tmp/capabl-automagic/.claude/agents/* ./.claude/agents/
 cp /tmp/capabl-automagic/scripts/humanize.ts ./scripts/
 cp /tmp/capabl-automagic/scripts/notion-bridge.ts ./scripts/
+mkdir -p ./shared/lib ./shared/types ./docs
+cp -r /tmp/capabl-automagic/shared/lib/* ./shared/lib/
 cp -r /tmp/capabl-automagic/shared/types/* ./shared/types/
+cp /tmp/capabl-automagic/docs/SSOT_INTEGRATION.md ./docs/
 
 # 3. Clean up
 rm -rf /tmp/capabl-automagic
