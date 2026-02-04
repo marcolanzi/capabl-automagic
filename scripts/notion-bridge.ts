@@ -352,10 +352,10 @@ export async function updateTicketStatus(
     Status: { status: { name: status } },
   };
 
-  // Set Resolved At when marking as Done
-  if (status === "Done") {
+  // Set Resolved At when marking as Done or In Review
+  if (status === "Done" || status === "In Review") {
     properties["Resolved At"] = {
-      date: { start: new Date().toISOString().split("T")[0] },
+      date: { start: new Date().toISOString() },
     };
   }
 
@@ -553,10 +553,10 @@ export async function updateTicketCompletion(
 
   if (options.status) {
     properties.Status = { status: { name: options.status } };
-    // Set Resolved At when marking as Done
-    if (options.status === "Done") {
+    // Set Resolved At when marking as Done or In Review
+    if (options.status === "Done" || options.status === "In Review") {
       properties["Resolved At"] = {
-        date: { start: new Date().toISOString().split("T")[0] },
+        date: { start: new Date().toISOString() },
       };
     }
   }

@@ -8,7 +8,7 @@
  *   npm run humanize -- --poll                          — Poll for Open tickets
  *   npm run humanize -- --create "Title" --area Frontend --type Story --body "Details..."  — Create ticket
  *   npm run humanize -- --start <ticket-id>             — Mark In Progress + create branch
- *   npm run humanize -- --done <ticket-id> [--commit abc123] [--feature "Event Scraper"]  — Mark Done
+ *   npm run humanize -- --done <ticket-id> [--commit abc123] [--feature "Event Scraper"]  — Mark In Review
  *   npm run humanize -- --get <ticket-id>               — Fetch full ticket details
  *   npm run humanize -- --delete <ticket-id>            — Delete (archive) a ticket
  *   npm run humanize -- --set-type <ticket-id> --to Bug — Change ticket type
@@ -285,18 +285,18 @@ async function cmdDone() {
   // Use batch update if we have multiple fields
   if (commit || feature) {
     await updateTicketCompletion(ticketId, {
-      status: "Done",
+      status: "In Review",
       commit: commit ?? undefined,
       feature: feature ?? undefined,
     });
-    console.log("  + Status -> Done");
+    console.log("  + Status -> In Review");
     if (commit) console.log(`  + Commit -> ${commit}`);
     if (feature) console.log(`  + Feature -> ${feature}`);
-    console.log("  + Resolved At -> today");
+    console.log("  + Resolved At -> now");
   } else {
-    await updateTicketStatus(ticketId, "Done");
-    console.log("  + Status -> Done");
-    console.log("  + Resolved At -> today");
+    await updateTicketStatus(ticketId, "In Review");
+    console.log("  + Status -> In Review");
+    console.log("  + Resolved At -> now");
   }
 
   appendHistory({
