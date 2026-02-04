@@ -19,6 +19,9 @@ export interface ShipyardTicket {
   spec_url: string | null;
   due: string | null;
   branch: string | null;
+  commit: string | null;
+  feature: string | null;
+  resolved_at: string | null;
   area: ShipyardArea | null;
   application: string | null;
   type: string | null;

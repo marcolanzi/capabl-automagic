@@ -8,10 +8,12 @@
  *   npm run humanize -- --poll                          — Poll for Open tickets
  *   npm run humanize -- --create "Title" --area Frontend --type Story --body "Details..."  — Create ticket
  *   npm run humanize -- --start <ticket-id>             — Mark In Progress + create branch
- *   npm run humanize -- --done <ticket-id>              — Mark Done + sync state
+ *   npm run humanize -- --done <ticket-id> [--commit abc123] [--feature "Event Scraper"]  — Mark Done
  *   npm run humanize -- --get <ticket-id>               — Fetch full ticket details
  *   npm run humanize -- --delete <ticket-id>            — Delete (archive) a ticket
  *   npm run humanize -- --set-type <ticket-id> --to Bug — Change ticket type
+ *   npm run humanize -- --set-feature <ticket-id> --to "Discovery Loop"  — Set feature category
+ *   npm run humanize -- --set-commit <ticket-id> --to abc123  — Set commit hash
  *
  * Type options: Bug, Task, Story, Epic (default: Story for new features)
  */
@@ -25,6 +27,9 @@ import {
   updateTicketBranch,
   updateTicketAssignee,
   updateTicketType,
+  updateTicketCommit,
+  updateTicketFeature,
+  updateTicketCompletion,
   deleteTicket,
   syncState,
   fetchTicketDetails,
@@ -272,10 +277,27 @@ async function cmdDone() {
     process.exit(1);
   }
 
+  const commit = getArg("--commit");
+  const feature = getArg("--feature");
+
   console.log(`> Completing ticket ${shortId(ticketId)}...`);
 
-  await updateTicketStatus(ticketId, "Done");
-  console.log("  + Status -> Done");
+  // Use batch update if we have multiple fields
+  if (commit || feature) {
+    await updateTicketCompletion(ticketId, {
+      status: "Done",
+      commit: commit ?? undefined,
+      feature: feature ?? undefined,
+    });
+    console.log("  + Status -> Done");
+    if (commit) console.log(`  + Commit -> ${commit}`);
+    if (feature) console.log(`  + Feature -> ${feature}`);
+    console.log("  + Resolved At -> today");
+  } else {
+    await updateTicketStatus(ticketId, "Done");
+    console.log("  + Status -> Done");
+    console.log("  + Resolved At -> today");
+  }
 
   appendHistory({
     ticket_id: ticketId,
@@ -304,9 +326,12 @@ async function cmdGet() {
   if (ticket.area) console.log(`Area: ${ticket.area}`);
   if (ticket.type) console.log(`Type: ${ticket.type}`);
   if (ticket.priority) console.log(`Priority: ${ticket.priority}`);
+  if (ticket.feature) console.log(`Feature: ${ticket.feature}`);
   if (ticket.spec_url) console.log(`Spec URL: ${ticket.spec_url}`);
   if (ticket.due) console.log(`Due: ${ticket.due}`);
   if (ticket.branch) console.log(`Branch: ${ticket.branch}`);
+  if (ticket.commit) console.log(`Commit: ${ticket.commit}`);
+  if (ticket.resolved_at) console.log(`Resolved At: ${ticket.resolved_at}`);
   if (ticket.blocked_by.length > 0) {
     console.log(`Blocked by: ${ticket.blocked_by.map(shortId).join(", ")}`);
   }
@@ -362,6 +387,46 @@ async function cmdSetType() {
   console.log(`  + Type -> ${typeArg}`);
 }
 
+async function cmdSetFeature() {
+  const ticketId = getArg("--set-feature");
+  const featureArg = getArg("--to");
+
+  if (!ticketId) {
+    console.error("x --set-feature requires a ticket ID");
+    process.exit(1);
+  }
+
+  if (!featureArg) {
+    console.error('x --to is required. Example: --to "Discovery Loop"');
+    process.exit(1);
+  }
+
+  console.log(`> Setting ticket ${shortId(ticketId)} feature to "${featureArg}"...`);
+
+  await updateTicketFeature(ticketId, featureArg);
+  console.log(`  + Feature -> ${featureArg}`);
+}
+
+async function cmdSetCommit() {
+  const ticketId = getArg("--set-commit");
+  const commitArg = getArg("--to");
+
+  if (!ticketId) {
+    console.error("x --set-commit requires a ticket ID");
+    process.exit(1);
+  }
+
+  if (!commitArg) {
+    console.error("x --to is required. Example: --to abc1234");
+    process.exit(1);
+  }
+
+  console.log(`> Setting ticket ${shortId(ticketId)} commit to ${commitArg}...`);
+
+  await updateTicketCommit(ticketId, commitArg);
+  console.log(`  + Commit -> ${commitArg}`);
+}
+
 // ── Main ──
 
 async function main() {
@@ -379,6 +444,10 @@ async function main() {
     await cmdDelete();
   } else if (hasFlag("--set-type")) {
     await cmdSetType();
+  } else if (hasFlag("--set-feature")) {
+    await cmdSetFeature();
+  } else if (hasFlag("--set-commit")) {
+    await cmdSetCommit();
   } else {
     await cmdSync();
   }

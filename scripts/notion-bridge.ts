@@ -170,6 +170,9 @@ export function extractTicket(page: any): ShipyardTicket & { assigned_to_ai_squa
     spec_url: extractUrl(props["Spec URL"]),
     due: extractDate(props["Due"]),
     branch: extractPlainText(props["Branch"]),
+    commit: extractPlainText(props["Commit"]),
+    feature: extractSelect(props["Feature"]),
+    resolved_at: extractDate(props["Resolved At"]),
     area: (areas[0] as ShipyardArea) ?? null,
     application: apps[0] ?? null,
     type: extractSelect(props["Type"]),
@@ -339,18 +342,26 @@ export async function createTicket(
 
 /**
  * Update a ticket's status in Notion.
+ * When status is "Done", also sets "Resolved At" to current timestamp.
  */
 export async function updateTicketStatus(
   pageId: string,
   status: ShipyardStatus
 ): Promise<void> {
+  const properties: Record<string, any> = {
+    Status: { status: { name: status } },
+  };
+
+  // Set Resolved At when marking as Done
+  if (status === "Done") {
+    properties["Resolved At"] = {
+      date: { start: new Date().toISOString().split("T")[0] },
+    };
+  }
+
   const data = await notionFetch(`/pages/${pageId}`, {
     method: "PATCH",
-    body: JSON.stringify({
-      properties: {
-        Status: { status: { name: status } },
-      },
-    }),
+    body: JSON.stringify({ properties }),
   });
 
   if (data.object === "error") {
@@ -472,6 +483,103 @@ export async function updateTicketType(
 
   if (data.object === "error") {
     throw new Error(`Type update failed: ${data.message}`);
+  }
+
+  await sleep(RATE_LIMIT_DELAY);
+}
+
+/**
+ * Update a ticket's commit hash.
+ */
+export async function updateTicketCommit(
+  pageId: string,
+  commit: string
+): Promise<void> {
+  const data = await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      properties: {
+        Commit: {
+          rich_text: [{ text: { content: commit } }],
+        },
+      },
+    }),
+  });
+
+  if (data.object === "error") {
+    throw new Error(`Commit update failed: ${data.message}`);
+  }
+
+  await sleep(RATE_LIMIT_DELAY);
+}
+
+/**
+ * Update a ticket's feature category.
+ * Feature is used to group tickets by product area for better organization.
+ */
+export async function updateTicketFeature(
+  pageId: string,
+  feature: string
+): Promise<void> {
+  const data = await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      properties: {
+        Feature: { select: { name: feature } },
+      },
+    }),
+  });
+
+  if (data.object === "error") {
+    throw new Error(`Feature update failed: ${data.message}`);
+  }
+
+  await sleep(RATE_LIMIT_DELAY);
+}
+
+/**
+ * Update multiple ticket fields at once.
+ * Useful when completing a ticket with status, commit, and feature.
+ */
+export async function updateTicketCompletion(
+  pageId: string,
+  options: {
+    status?: ShipyardStatus;
+    commit?: string;
+    feature?: string;
+  }
+): Promise<void> {
+  const properties: Record<string, any> = {};
+
+  if (options.status) {
+    properties.Status = { status: { name: options.status } };
+    // Set Resolved At when marking as Done
+    if (options.status === "Done") {
+      properties["Resolved At"] = {
+        date: { start: new Date().toISOString().split("T")[0] },
+      };
+    }
+  }
+
+  if (options.commit) {
+    properties.Commit = {
+      rich_text: [{ text: { content: options.commit } }],
+    };
+  }
+
+  if (options.feature) {
+    properties.Feature = { select: { name: options.feature } };
+  }
+
+  if (Object.keys(properties).length === 0) return;
+
+  const data = await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ properties }),
+  });
+
+  if (data.object === "error") {
+    throw new Error(`Ticket completion update failed: ${data.message}`);
   }
 
   await sleep(RATE_LIMIT_DELAY);
