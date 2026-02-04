@@ -119,6 +119,41 @@ cp /tmp/capabl-automagic/scripts/*.ts /your-project/scripts/
 rm -rf /tmp/capabl-automagic
 ```
 
+## SSOT Integration (Capabl Core)
+
+Satellite apps (Retail Intelligence, etc.) integrate with **Capabl Core** for centralized authentication and entity management.
+
+See **[docs/SSOT_INTEGRATION.md](docs/SSOT_INTEGRATION.md)** for:
+- User authentication setup (single sign-on)
+- Entity management (Vendors, Brands, Users)
+- The two-client pattern (`coreAuth` + local `supabase`)
+- API examples and integration checklist
+
+### Quick Reference
+
+```typescript
+// Auth → Capabl Core
+import { coreAuth } from '@/integrations/supabase/coreAuth';
+await coreAuth.auth.signInWithPassword({ email, password });
+
+// Entity resolution → Capabl Core
+import { createCoreMapClient } from '@capabl/automagic';
+const coreMap = createCoreMapClient('your-app-name');
+const vendor = await coreMap.resolveVendor('salesforce.com');
+
+// App data → Local Supabase
+import { supabase } from '@/integrations/supabase/client';
+await supabase.from('local_table').select('*');
+```
+
+## Shared Libraries
+
+Located in `shared/lib/`:
+
+| Library | Purpose |
+|---------|---------|
+| `coreMapClient.ts` | Client for Capabl Core entity registry |
+
 ## Design System
 
 The `frontend-ux-visualizer` agent owns the **Capabl Design System**, which includes:
