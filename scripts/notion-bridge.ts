@@ -455,6 +455,45 @@ export async function updateTicketAssignee(
 }
 
 /**
+ * Update a ticket's type (Bug, Task, Story, Epic).
+ */
+export async function updateTicketType(
+  pageId: string,
+  type: ShipyardType
+): Promise<void> {
+  const data = await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      properties: {
+        Type: { select: { name: type } },
+      },
+    }),
+  });
+
+  if (data.object === "error") {
+    throw new Error(`Type update failed: ${data.message}`);
+  }
+
+  await sleep(RATE_LIMIT_DELAY);
+}
+
+/**
+ * Delete (archive) a ticket in Notion.
+ */
+export async function deleteTicket(pageId: string): Promise<void> {
+  const data = await notionFetch(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived: true }),
+  });
+
+  if (data.object === "error") {
+    throw new Error(`Delete failed: ${data.message}`);
+  }
+
+  await sleep(RATE_LIMIT_DELAY);
+}
+
+/**
  * Fetch full details of a single ticket, including page content (description).
  * Returns both properties and page blocks.
  */

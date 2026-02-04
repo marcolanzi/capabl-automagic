@@ -10,8 +10,10 @@
  *   npm run humanize -- --start <ticket-id>             — Mark In Progress + create branch
  *   npm run humanize -- --done <ticket-id>              — Mark Done + sync state
  *   npm run humanize -- --get <ticket-id>               — Fetch full ticket details
+ *   npm run humanize -- --delete <ticket-id>            — Delete (archive) a ticket
+ *   npm run humanize -- --set-type <ticket-id> --to Bug — Change ticket type
  *
- * Type options: Bug, Task, Story, Epic (default: Story for new features, Bug for fixes)
+ * Type options: Bug, Task, Story, Epic (default: Story for new features)
  */
 
 import * as dotenv from "dotenv";
@@ -22,6 +24,8 @@ import {
   updateTicketStatus,
   updateTicketBranch,
   updateTicketAssignee,
+  updateTicketType,
+  deleteTicket,
   syncState,
   fetchTicketDetails,
   type ShipyardType,
@@ -315,6 +319,49 @@ async function cmdGet() {
   console.log(`Updated: ${ticket.updated_at}`);
 }
 
+async function cmdDelete() {
+  const ticketId = getArg("--delete");
+  if (!ticketId) {
+    console.error("x --delete requires a ticket ID");
+    process.exit(1);
+  }
+
+  console.log(`> Deleting ticket ${shortId(ticketId)}...`);
+
+  await deleteTicket(ticketId);
+  console.log("  + Ticket archived/deleted");
+
+  appendHistory({
+    ticket_id: ticketId,
+    title: "(deleted)",
+    action: "done",
+    timestamp: new Date().toISOString(),
+  });
+
+  const state = await syncState();
+  console.log(`\n+ Ticket deleted. ${state.queue.length} ticket(s) remaining.`);
+}
+
+async function cmdSetType() {
+  const ticketId = getArg("--set-type");
+  const typeArg = getArg("--to");
+
+  if (!ticketId) {
+    console.error("x --set-type requires a ticket ID");
+    process.exit(1);
+  }
+
+  if (!typeArg || !VALID_TYPES.includes(typeArg as ShipyardType)) {
+    console.error(`x --to is required. Valid types: ${VALID_TYPES.join(", ")}`);
+    process.exit(1);
+  }
+
+  console.log(`> Setting ticket ${shortId(ticketId)} type to ${typeArg}...`);
+
+  await updateTicketType(ticketId, typeArg as ShipyardType);
+  console.log(`  + Type -> ${typeArg}`);
+}
+
 // ── Main ──
 
 async function main() {
@@ -328,6 +375,10 @@ async function main() {
     await cmdDone();
   } else if (hasFlag("--get")) {
     await cmdGet();
+  } else if (hasFlag("--delete")) {
+    await cmdDelete();
+  } else if (hasFlag("--set-type")) {
+    await cmdSetType();
   } else {
     await cmdSync();
   }
