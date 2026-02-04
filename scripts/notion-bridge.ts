@@ -352,8 +352,8 @@ export async function updateTicketStatus(
     Status: { status: { name: status } },
   };
 
-  // Set Resolved At when marking as Done or In Review
-  if (status === "Done" || status === "In Review") {
+  // Set Resolved At when marking as Done or Review AI Fix
+  if (status === "Done" || status === "Review AI Fix") {
     properties["Resolved At"] = {
       date: { start: new Date().toISOString() },
     };
@@ -553,8 +553,8 @@ export async function updateTicketCompletion(
 
   if (options.status) {
     properties.Status = { status: { name: options.status } };
-    // Set Resolved At when marking as Done or In Review
-    if (options.status === "Done" || options.status === "In Review") {
+    // Set Resolved At when marking as Done or Review AI Fix
+    if (options.status === "Done" || options.status === "Review AI Fix") {
       properties["Resolved At"] = {
         date: { start: new Date().toISOString() },
       };

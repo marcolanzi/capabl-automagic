@@ -5,7 +5,7 @@
  * These types are shared across all Capabl applications that use the Humanize bridge.
  */
 
-export type ShipyardStatus = 'Open' | 'In Progress' | 'On hold' | 'In Review' | 'Done' | 'Blocked by human';
+export type ShipyardStatus = 'Open' | 'In Progress' | 'On hold' | 'In Review' | 'Review AI Fix' | 'Done' | 'Blocked by human';
 
 export type ShipyardArea = 'Frontend' | 'Backend' | 'Growth' | 'Delivery' | 'Docs';
 

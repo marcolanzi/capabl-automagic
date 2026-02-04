@@ -8,7 +8,7 @@
  *   npm run humanize -- --poll                          — Poll for Open tickets
  *   npm run humanize -- --create "Title" --area Frontend --type Story --body "Details..."  — Create ticket
  *   npm run humanize -- --start <ticket-id>             — Mark In Progress + create branch
- *   npm run humanize -- --done <ticket-id> [--commit abc123] [--feature "Event Scraper"]  — Mark In Review
+ *   npm run humanize -- --done <ticket-id> [--commit abc123] [--feature "Event Scraper"]  — Mark Review AI Fix
  *   npm run humanize -- --get <ticket-id>               — Fetch full ticket details
  *   npm run humanize -- --delete <ticket-id>            — Delete (archive) a ticket
  *   npm run humanize -- --set-type <ticket-id> --to Bug — Change ticket type
@@ -114,7 +114,7 @@ async function cmdSync() {
 
   const statusOrder: ShipyardStatus[] = [
     "In Progress",
-    "In Review",
+    "Review AI Fix",
     "Open",
     "On hold",
     "Blocked by human",
@@ -285,17 +285,17 @@ async function cmdDone() {
   // Use batch update if we have multiple fields
   if (commit || feature) {
     await updateTicketCompletion(ticketId, {
-      status: "In Review",
+      status: "Review AI Fix",
       commit: commit ?? undefined,
       feature: feature ?? undefined,
     });
-    console.log("  + Status -> In Review");
+    console.log("  + Status -> Review AI Fix");
     if (commit) console.log(`  + Commit -> ${commit}`);
     if (feature) console.log(`  + Feature -> ${feature}`);
     console.log("  + Resolved At -> now");
   } else {
-    await updateTicketStatus(ticketId, "In Review");
-    console.log("  + Status -> In Review");
+    await updateTicketStatus(ticketId, "Review AI Fix");
+    console.log("  + Status -> Review AI Fix");
     console.log("  + Resolved At -> now");
   }
 
